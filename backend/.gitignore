@@ -1,0 +1,19 @@
+.antigravitycli
+.git
+# .gitignore
+node_modules
+package-lock.json
+yarn-error.log
+yarn.lock
+__pycache__/
+build/
+dist/
+htmlcov/
+htmlcov_report/
+coverage.xml
+.coverage
+.pytest_cache/
+.mypy_cache/
+__pycache__/
+
+.env
