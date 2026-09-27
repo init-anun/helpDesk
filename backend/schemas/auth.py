@@ -8,8 +8,8 @@ class UserCreate(BaseModel):
     full_name: Optional[str] = None
 
 
-class UserLogin(BaseModel):
-    email: EmailStr
+class UserLoginRequest(BaseModel):
+    email: str
     password: str
 
 
