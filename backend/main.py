@@ -1,11 +1,31 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
-from routers import auth
 from contextlib import asynccontextmanager
 
 from core.seed import seed_roles_and_users
 from db.database import create_tables
+
+from routers import (
+    auth, 
+    patient, 
+    therapist,
+    schedule,
+    billing,
+)
+
+# Import models so SQLAlchemy registers them
+from models import (
+    Role, 
+    User, 
+    Patient, 
+    Therapist,
+    Schedule,
+    MasterTransaction,
+    VoucherDetail,
+    VoucherSubDetail,
+)
+
 
 
 @asynccontextmanager
@@ -38,7 +58,11 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix=settings.API_PREFIX)
-# app.include_router(job.router, prefix=settings.API_PREFIX)
+app.include_router(patient.router, prefix=settings.API_PREFIX)
+app.include_router(therapist.router, prefix=settings.API_PREFIX)
+app.include_router(schedule.router, prefix=settings.API_PREFIX)
+app.include_router(billing.router, prefix=settings.API_PREFIX)
+
 # app.include_router(explanation.router, prefix=settings.API_PREFIX)
 
 if __name__ == "__main__":
