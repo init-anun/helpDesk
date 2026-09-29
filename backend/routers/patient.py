@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -35,21 +37,44 @@ def create_patient(
     data: PatientCreate,
     db: Session = Depends(get_db),
 ):
+    # Get the latest patient account code
+    last_patient = (
+        db.query(SubAccount)
+        .filter(
+            SubAccount.account_type == "PATIENT",
+            SubAccount.sub_acc_code.isnot(None),
+        )
+        .order_by(SubAccount.id.desc())
+        .first()
+    )
+
+    # Generate next patient number
+    if last_patient and last_patient.sub_acc_code:
+        try:
+            last_number = int(
+                last_patient.sub_acc_code.replace("PT-", "")
+            )
+        except ValueError:
+            last_number = 0
+    else:
+        last_number = 0
+
+    next_number = last_number + 1
+
+    # Four digits: PT-0001, PT-0002, ...
+    sub_acc_code = f"PT-{next_number:04d}"
 
     patient = SubAccount(
+        sub_acc_code=sub_acc_code,
         name=data.name,
         phone=data.phone,
-
         age=data.age,
         gender=data.gender,
         address=data.address,
-
         condition=data.condition,
         package=data.package,
-
         status=data.status,
-
-        account_type="patient",
+        account_type="PATIENT",
     )
 
     db.add(patient)
@@ -74,7 +99,7 @@ def get_patients(
     patients = db.query(
         SubAccount
     ).filter(
-        SubAccount.account_type == "patient"
+        SubAccount.account_type == "PATIENT"
     ).order_by(
         SubAccount.id.desc()
     ).all()
@@ -99,7 +124,7 @@ def get_patient(
         SubAccount
     ).filter(
         SubAccount.id == patient_id,
-        SubAccount.account_type == "patient"
+        SubAccount.account_type == "PATIENT"
     ).first()
 
     if not patient:
@@ -129,7 +154,7 @@ def update_patient(
         SubAccount
     ).filter(
         SubAccount.id == patient_id,
-        SubAccount.account_type == "patient"
+        SubAccount.account_type == "PATIENT"
     ).first()
 
     if not patient:

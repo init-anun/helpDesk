@@ -71,14 +71,14 @@ class Schedule(Base):
         index=True,
     )
 
-    patient = relationship(
-        "SubAccount",
-        foreign_keys=[patient_id],
-        back_populates="patient_schedules",
-    )
+    # patient = relationship(
+    #     "SubAccount",
+    #     foreign_keys=[patient_id],
+    #     back_populates="patient_schedules",
+    # )
 
-    therapist = relationship(
-        "SubAccount",
-        foreign_keys=[therapist_id],
-        back_populates="therapist_schedules",
-    )
+    # therapist = relationship(
+    #     "SubAccount",
+    #     foreign_keys=[therapist_id],
+    #     back_populates="therapist_schedules",
+    # )

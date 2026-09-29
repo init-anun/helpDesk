@@ -1,4 +1,4 @@
-from sqlalchemy import String, Integer
+from sqlalchemy import String, Integer, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.database import Base
@@ -9,6 +9,13 @@ class SubAccount(Base):
 
     id: Mapped[int] = mapped_column(
         primary_key=True,
+        index=True
+    )
+
+    sub_acc_code: Mapped[str] = mapped_column(
+        String(50),
+        unique=True,
+        nullable=False,
         index=True
     )
 
@@ -66,14 +73,14 @@ class SubAccount(Base):
         nullable=False
     )
 
-    patient_schedules = relationship(
-        "Schedule",
-        foreign_keys="Schedule.patient_id",
-        back_populates="patient",
-    )
+    # patient_schedules = relationship(
+    #     "Schedule",
+    #     foreign_keys="Schedule.patient_id",
+    #     back_populates="patient",
+    # )
 
-    therapist_schedules = relationship(
-        "Schedule",
-        foreign_keys="Schedule.therapist_id",
-        back_populates="therapist",
-    )
+    # therapist_schedules = relationship(
+    #     "Schedule",
+    #     foreign_keys="Schedule.therapist_id",
+    #     back_populates="therapist",
+    # )

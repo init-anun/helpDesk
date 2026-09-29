@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  Eye,
   Plus,
   Users,
 } from "lucide-react";
@@ -30,116 +29,110 @@ interface Patient {
   status: "Active" | "Inactive";
 }
 
-const patients: Patient[] = [
-  {
-    id: 1,
-    patientId: "PT-1001",
-    name: "John Doe",
-    email: "john.doe@example.com",
-    phone: "+977 9812345678",
-    gender: "Male",
-    dateOfBirth: "1990-04-12",
-    status: "Active",
-  },
-  {
-    id: 2,
-    patientId: "PT-1002",
-    name: "Sarah Wilson",
-    email: "sarah.wilson@example.com",
-    phone: "+977 9823456789",
-    gender: "Female",
-    dateOfBirth: "1987-08-21",
-    status: "Active",
-  },
-  {
-    id: 3,
-    patientId: "PT-1003",
-    name: "Michael Brown",
-    email: "michael.brown@example.com",
-    phone: "+977 9834567890",
-    gender: "Male",
-    dateOfBirth: "1979-02-15",
-    status: "Inactive",
-  },
-  {
-    id: 4,
-    patientId: "PT-1004",
-    name: "Emily Johnson",
-    email: "emily.johnson@example.com",
-    phone: "+977 9845678901",
-    gender: "Female",
-    dateOfBirth: "1995-11-03",
-    status: "Active",
-  },
-  {
-    id: 5,
-    patientId: "PT-1005",
-    name: "David Smith",
-    email: "david.smith@example.com",
-    phone: "+977 9856789012",
-    gender: "Male",
-    dateOfBirth: "1984-06-28",
-    status: "Active",
-  },
-  {
-    id: 6,
-    patientId: "PT-1006",
-    name: "Sophia Miller",
-    email: "sophia.miller@example.com",
-    phone: "+977 9867890123",
-    gender: "Female",
-    dateOfBirth: "1992-09-17",
-    status: "Active",
-  },
-  {
-    id: 7,
-    patientId: "PT-1007",
-    name: "Robert Taylor",
-    email: "robert.taylor@example.com",
-    phone: "+977 9878901234",
-    gender: "Male",
-    dateOfBirth: "1975-04-30",
-    status: "Inactive",
-  },
-  {
-    id: 8,
-    patientId: "PT-1008",
-    name: "Olivia Anderson",
-    email: "olivia.anderson@example.com",
-    phone: "+977 9889012345",
-    gender: "Female",
-    dateOfBirth: "1998-01-11",
-    status: "Active",
-  },
-  {
-    id: 9,
-    patientId: "PT-1009",
-    name: "James Thomas",
-    email: "james.thomas@example.com",
-    phone: "+977 9890123456",
-    gender: "Male",
-    dateOfBirth: "1989-12-05",
-    status: "Active",
-  },
-  {
-    id: 10,
-    patientId: "PT-1010",
-    name: "Emma Martinez",
-    email: "emma.martinez@example.com",
-    phone: "+977 9801234567",
-    gender: "Female",
-    dateOfBirth: "1993-07-22",
-    status: "Active",
-  },
-];
-
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 
 export default function PatientsPage() {
-  const [search, setSearch] = useState("");
-  const [currentPage, setCurrentPage] =
-    useState(1);
+  const router = useRouter();
 
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  /**
+   * Fetch patients from backend
+   */
+  useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await fetch("http://127.0.0.1:8000/api/patients/", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch patients (${response.status})`
+          );
+        }
+
+        const data = await response.json();
+
+        /*
+         * If your FastAPI endpoint returns:
+         *
+         * [
+         *   {
+         *     "id": 1,
+         *     "patient_id": "PT-1001",
+         *     "name": "John Doe",
+         *     ...
+         *   }
+         * ]
+         *
+         * this converts it into the frontend format.
+         *
+         * If your backend already returns camelCase,
+         * the fallback values handle that as well.
+         */
+        const patientsData: Patient[] = data.map(
+          (patient: any) => ({
+            id: patient.id,
+
+            patientId:
+              patient.sub_acc_code ?? "",
+
+            name:
+              patient.name ??
+              `${patient.first_name ?? ""} ${
+                patient.last_name ?? ""
+              }`.trim(),
+
+            email: patient.email ?? "",
+
+            phone:
+              patient.phone ??
+              patient.phone_number ??
+              "",
+
+            gender: patient.gender ?? "Other",
+
+            dateOfBirth:
+              patient.date_of_birth ??
+              patient.dateOfBirth ??
+              "",
+
+            status: patient.status ?? "Active",
+          })
+        );
+
+        setPatients(patientsData);
+      } catch (err) {
+        console.error("Error fetching patients:", err);
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load patients."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPatients();
+  }, []);
+
+  /**
+   * Search/filter patients
+   */
   const filteredPatients = useMemo(() => {
     const query = search.trim().toLowerCase();
 
@@ -160,38 +153,61 @@ export default function PatientsPage() {
         .toLowerCase()
         .includes(query)
     );
-  }, [search]);
+  }, [patients, search]);
+
+  /**
+   * Reset pagination if search result changes
+   */
+  useEffect(() => {
+    const totalPages = Math.max(
+      1,
+      Math.ceil(filteredPatients.length / PAGE_SIZE)
+    );
+
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [filteredPatients.length, currentPage]);
 
   const totalPages = Math.ceil(
     filteredPatients.length / PAGE_SIZE
   );
 
-  const paginatedPatients =
-    filteredPatients.slice(
-      (currentPage - 1) * PAGE_SIZE,
-      currentPage * PAGE_SIZE
-    );
+  const paginatedPatients = filteredPatients.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
 
   const handleSearch = (value: string) => {
     setSearch(value);
     setCurrentPage(1);
   };
 
-  const router = useRouter();
-
+  /**
+   * View patient
+   */
   const handleView = (patient: Patient) => {
     router.push(`/patients/${patient.id}`);
   };
 
+  /**
+   * Edit patient
+   */
   const handleEdit = (patient: Patient) => {
     router.push(`/patients/${patient.id}/edit`);
   };
 
+  /**
+   * Add patient
+   */
   const handleAddPatient = () => {
     router.push("/patients/create");
   };
 
-  const handleDelete = (patient: Patient) => {
+  /**
+   * Delete patient
+   */
+  const handleDelete = async (patient: Patient) => {
     const confirmed = window.confirm(
       `Are you sure you want to delete ${patient.name}?`
     );
@@ -200,32 +216,63 @@ export default function PatientsPage() {
       return;
     }
 
-    console.log("Delete:", patient);
+    try {
+      const response = await fetch(
+        `/api/patients/${patient.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to delete patient.");
+      }
+
+      // Remove deleted patient from local state
+      setPatients((currentPatients) =>
+        currentPatients.filter(
+          (item) => item.id !== patient.id
+        )
+      );
+    } catch (err) {
+      console.error("Error deleting patient:", err);
+
+      window.alert(
+        err instanceof Error
+          ? err.message
+          : "Failed to delete patient."
+      );
+    }
   };
 
-
+  /**
+   * Table columns
+   */
   const columns: DataTableColumn<Patient>[] = [
     {
       key: "name",
       header: "Patient",
+
       render: (patient) => (
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-600">
             {patient.name
-              .split(" ")
-              .map((name) => name[0])
-              .join("")
-              .slice(0, 2)
-              .toUpperCase()}
+              ? patient.name
+                  .split(" ")
+                  .map((name) => name[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase()
+              : "P"}
           </div>
 
           <div>
             <p className="font-medium text-slate-800">
-              {patient.name}
+              {patient.name || "Unnamed Patient"}
             </p>
 
             <p className="text-xs text-slate-400">
-              {patient.email}
+              {patient.email || "No email"}
             </p>
           </div>
         </div>
@@ -235,6 +282,7 @@ export default function PatientsPage() {
     {
       key: "patientId",
       header: "Patient ID",
+
       render: (patient) => (
         <span className="font-medium text-slate-600">
           {patient.patientId}
@@ -245,21 +293,40 @@ export default function PatientsPage() {
     {
       key: "phone",
       header: "Contact",
+
+      render: (patient) => (
+        <span className="text-slate-600">
+          {patient.phone || "-"}
+        </span>
+      ),
     },
 
     {
       key: "gender",
       header: "Gender",
+
+      render: (patient) => (
+        <span className="text-slate-600">
+          {patient.gender || "-"}
+        </span>
+      ),
     },
 
     {
       key: "dateOfBirth",
       header: "Date of Birth",
+
+      render: (patient) => (
+        <span className="text-slate-600">
+          {patient.dateOfBirth || "-"}
+        </span>
+      ),
     },
 
     {
       key: "status",
       header: "Status",
+
       render: (patient) => (
         <span
           className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
@@ -277,6 +344,7 @@ export default function PatientsPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="p-6 lg:p-8">
+
         {/* Header */}
         <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
@@ -307,6 +375,7 @@ export default function PatientsPage() {
 
         {/* Table */}
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+
           {/* Toolbar */}
           <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -330,23 +399,59 @@ export default function PatientsPage() {
             />
           </div>
 
-          <DataTable
-            data={paginatedPatients}
-            columns={columns}
-            getRowKey={(patient) => patient.id}
-            onView={handleView}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            emptyMessage="No patients found."
-          />
+          {/* Loading */}
+          {loading && (
+            <div className="flex items-center justify-center py-16">
+              <div className="flex items-center gap-3 text-sm text-slate-500">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
+                Loading patients...
+              </div>
+            </div>
+          )}
 
-          <DataTablePagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={filteredPatients.length}
-            pageSize={PAGE_SIZE}
-            onPageChange={setCurrentPage}
-          />
+          {/* Error */}
+          {!loading && error && (
+            <div className="flex flex-col items-center justify-center py-16">
+              <p className="text-sm font-medium text-red-600">
+                Failed to load patients
+              </p>
+
+              <p className="mt-1 text-xs text-slate-500">
+                {error}
+              </p>
+
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+
+          {/* Data table */}
+          {!loading && !error && (
+            <>
+              <DataTable
+                data={paginatedPatients}
+                columns={columns}
+                getRowKey={(patient) => patient.id}
+                onView={handleView}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                emptyMessage="No patients found."
+              />
+
+              <DataTablePagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredPatients.length}
+                pageSize={PAGE_SIZE}
+                onPageChange={setCurrentPage}
+              />
+            </>
+          )}
         </div>
       </div>
     </div>

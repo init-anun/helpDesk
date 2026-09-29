@@ -125,6 +125,7 @@ export default function PatientForm({
     return Object.keys(newErrors).length === 0;
   };
 
+  
   const handleSubmit = async (
     event: FormEvent<HTMLFormElement>
   ) => {
@@ -137,32 +138,82 @@ export default function PatientForm({
     setLoading(true);
 
     try {
-      /*
-       * Replace this section with your FastAPI API call.
-       *
-       * CREATE:
-       * POST /api/patients
-       *
-       * EDIT:
-       * PUT /api/patients/{id}
-       */
+      const isCreate = mode === "create";
+
+      // Create:
+      // POST /api/patients
+      //
+      // Edit:
+      // PUT /api/patients/{patientId}
+      const url = isCreate
+        ? "http://127.0.0.1:8000/api/patients/"
+        : `http://127.0.0.1:8000/api/patients/${formData.patientId}/`;
+
+      const method = isCreate ? "POST" : "PUT";
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          // patientId: formData.patientId || null,
+          // firstName: formData.firstName.trim(),
+          // lastName: formData.lastName.trim(),
+          name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
+          email: formData.email.trim(),
+          phone: formData.phone.trim(),
+          gender: formData.gender,
+          dateOfBirth: formData.dateOfBirth,
+          bloodGroup: formData.bloodGroup || null,
+          address: formData.address.trim() || null,
+          emergencyContactName:
+            formData.emergencyContactName.trim(),
+          emergencyContactPhone:
+            formData.emergencyContactPhone.trim(),
+          medicalHistory:
+            formData.medicalHistory.trim() || null,
+          status: formData.status,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.detail ||
+            data?.message ||
+            `Failed to ${
+              isCreate ? "create" : "update"
+            } patient.`
+        );
+      }
 
       console.log(
-        mode === "create"
-          ? "Creating patient:"
-          : "Updating patient:",
-        formData
-      );
-
-      // Temporary delay for UI testing.
-      await new Promise((resolve) =>
-        setTimeout(resolve, 700)
+        isCreate
+          ? "Patient created successfully:"
+          : "Patient updated successfully:",
+        data
       );
 
       router.push("/patients");
       router.refresh();
     } catch (error) {
-      console.error("Patient save error:", error);
+      const isCreate = mode === "create";
+      console.error(
+        (isCreate)
+          ? "Patient creation error:"
+          : "Patient update error:",
+        error
+      );
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : `Failed to ${
+              isCreate ? "create" : "update"
+            } patient.`
+      );
     } finally {
       setLoading(false);
     }
@@ -183,7 +234,7 @@ export default function PatientForm({
         >
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
 
-            <FormField
+            {/* <FormField
               label="Patient ID"
               hint={
                 mode === "create"
@@ -202,7 +253,7 @@ export default function PatientForm({
                 placeholder="PT-1001"
                 disabled={mode === "edit"}
               />
-            </FormField>
+            </FormField> */}
 
             <div />
 

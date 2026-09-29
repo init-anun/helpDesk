@@ -7,6 +7,7 @@ from .schedule import Schedule
 from .master_transaction import MasterTransaction
 from .voucher_detail import VoucherDetail
 from .voucher_sub_detail import VoucherSubDetail
+from .session import TherapySession
 
 __all__ = [
     "Role",
@@ -16,4 +17,5 @@ __all__ = [
     "MasterTransaction",
     "VoucherDetail",
     "VoucherSubDetail",
+    "TherapySession",
 ]

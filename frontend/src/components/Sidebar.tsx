@@ -35,7 +35,7 @@ const navItems: NavItem[] = [
     icon: CalendarDays,
   },
   {
-    name: "Billing",
+    name: "Invoice",
     href: "/billing",
     icon: Receipt,
   },

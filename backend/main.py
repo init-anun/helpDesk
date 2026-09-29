@@ -12,6 +12,7 @@ from routers import (
     therapist,
     schedule,
     billing,
+    session
 )
 
 # Import models so SQLAlchemy registers them
@@ -22,6 +23,7 @@ from models import (
     MasterTransaction,
     VoucherDetail,
     VoucherSubDetail,
+    TherapySession,
 )
 
 
