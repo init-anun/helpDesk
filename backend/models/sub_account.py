@@ -1,11 +1,11 @@
-from sqlalchemy import String, Integer, ForeignKey
+from sqlalchemy import String, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.database import Base
 
 
-class Patient(Base):
-    __tablename__ = "patients"
+class SubAccount(Base):
+    __tablename__ = "sub_accounts"
 
     id: Mapped[int] = mapped_column(
         primary_key=True,
@@ -17,10 +17,23 @@ class Patient(Base):
         nullable=False
     )
 
-    phone: Mapped[str] = mapped_column(
+    phone: Mapped[str | None] = mapped_column(
         String(20),
-        nullable=False
+        nullable=True
     )
+
+    email: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True
+    )
+
+    account_type: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        index=True
+    )
+
+    # Patient-specific fields
 
     age: Mapped[int | None] = mapped_column(
         Integer,
@@ -53,17 +66,14 @@ class Patient(Base):
         nullable=False
     )
 
-    therapist_id: Mapped[int | None] = mapped_column(
-        ForeignKey("therapists.id"),
-        nullable=True
-    )
-
-    therapist = relationship(
-        "Therapist",
-        back_populates="patients"
-    )
-
-    schedules = relationship(
+    patient_schedules = relationship(
         "Schedule",
-        back_populates="patient"
+        foreign_keys="Schedule.patient_id",
+        back_populates="patient",
+    )
+
+    therapist_schedules = relationship(
+        "Schedule",
+        foreign_keys="Schedule.therapist_id",
+        back_populates="therapist",
     )

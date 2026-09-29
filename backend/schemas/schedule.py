@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
-class ScheduleCreate(BaseModel):
+class ScheduleBase(BaseModel):
     patient_id: int
     therapist_id: int
     scheduled_at: datetime
@@ -11,6 +11,10 @@ class ScheduleCreate(BaseModel):
     type: str
     notes: str | None = None
     status: str = "scheduled"
+
+
+class ScheduleCreate(ScheduleBase):
+    pass
 
 
 class ScheduleUpdate(BaseModel):
@@ -23,16 +27,7 @@ class ScheduleUpdate(BaseModel):
     status: str | None = None
 
 
-class ScheduleResponse(BaseModel):
+class ScheduleResponse(ScheduleBase):
     id: int
-    patient_id: int
-    therapist_id: int
-    scheduled_at: datetime
-    duration_minutes: int
-    type: str
-    notes: str | None
-    status: str
 
-    model_config = ConfigDict(
-        from_attributes=True
-    )
+    model_config = ConfigDict(from_attributes=True)

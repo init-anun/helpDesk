@@ -1,10 +1,15 @@
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    String,
+    BigInteger,
     Integer,
+    SmallInteger,
     Numeric,
+    String,
     ForeignKey,
+    DateTime,
+    CHAR,
 )
 from sqlalchemy.orm import (
     Mapped,
@@ -18,71 +23,143 @@ from db.database import Base
 class VoucherSubDetail(Base):
     __tablename__ = "voucher_sub_details"
 
+    # ---------------------------------------------------------
+    # Primary Key
+    # ---------------------------------------------------------
+
     id: Mapped[int] = mapped_column(
+        BigInteger,
         primary_key=True,
-        index=True
+        autoincrement=True,
+        index=True,
     )
 
-    voucher_detail_id: Mapped[int] = mapped_column(
+    # ---------------------------------------------------------
+    # Master Transaction
+    # ---------------------------------------------------------
+
+    master_transaction_id: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey(
-            "voucher_details.id",
-            ondelete="CASCADE"
+            "master_transactions.id",
+            ondelete="CASCADE",
         ),
-        nullable=False
+        nullable=False,
+        index=True,
     )
 
-    item_code: Mapped[str | None] = mapped_column(
-        String(50),
-        nullable=True
+    # ---------------------------------------------------------
+    # Accounting
+    # ---------------------------------------------------------
+
+    serial_no: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
     )
 
-    item_name: Mapped[str] = mapped_column(
-        String(150),
-        nullable=False
+    chart_of_account_id: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        index=True,
     )
 
-    description: Mapped[str | None] = mapped_column(
-        String(255),
-        nullable=True
+    sub_account_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        nullable=True,
+        index=True,
     )
 
-    quantity: Mapped[Decimal] = mapped_column(
-        Numeric(10, 2),
-        default=1,
-        nullable=False
+    # ---------------------------------------------------------
+    # Item
+    # ---------------------------------------------------------
+
+    item_description: Mapped[str | None] = mapped_column(
+        String(250),
+        nullable=True,
     )
 
-    rate: Mapped[Decimal] = mapped_column(
+    quantity: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    unit_price: Mapped[Decimal | None] = mapped_column(
         Numeric(12, 2),
-        default=0,
-        nullable=False
+        nullable=True,
     )
 
-    discount: Mapped[Decimal] = mapped_column(
+    # ---------------------------------------------------------
+    # Tax
+    # ---------------------------------------------------------
+
+    tax: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    tax_rate: Mapped[Decimal | None] = mapped_column(
         Numeric(12, 2),
-        default=0,
-        nullable=False
+        nullable=True,
     )
 
-    tax_rate: Mapped[Decimal] = mapped_column(
-        Numeric(5, 2),
-        default=0,
-        nullable=False
+    # ---------------------------------------------------------
+    # Transaction
+    # ---------------------------------------------------------
+
+    tr_code: Mapped[str | None] = mapped_column(
+        CHAR(2),
+        nullable=True,
     )
 
-    tax_amount: Mapped[Decimal] = mapped_column(
+    dr_amount: Mapped[Decimal | None] = mapped_column(
         Numeric(12, 2),
-        default=0,
-        nullable=False
+        nullable=True,
     )
 
-    amount: Mapped[Decimal] = mapped_column(
+    cr_amount: Mapped[Decimal | None] = mapped_column(
         Numeric(12, 2),
-        default=0,
-        nullable=False
+        nullable=True,
     )
 
-    voucher_detail = relationship(
-        "VoucherDetail",
-        back_populates="sub_details"
+    # ---------------------------------------------------------
+    # Audit
+    # ---------------------------------------------------------
+
+    created_by: Mapped[str | None] = mapped_column(
+        String(10),
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
+    discount: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 2),
+        nullable=True,
+    )
+
+    line_item: Mapped[int | None] = mapped_column(
+        SmallInteger,
+        nullable=True,
+    )
+
+    updated_by: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    # ---------------------------------------------------------
+    # Relationship
+    # ---------------------------------------------------------
+
+    transaction = relationship(
+        "MasterTransaction",
+        back_populates="voucher_sub_details",
     )

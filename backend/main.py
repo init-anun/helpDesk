@@ -18,8 +18,6 @@ from routers import (
 from models import (
     Role, 
     User, 
-    Patient, 
-    Therapist,
     Schedule,
     MasterTransaction,
     VoucherDetail,

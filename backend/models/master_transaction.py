@@ -1,18 +1,16 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    BigInteger,
     String,
     Integer,
     Date,
+    DateTime,
     Numeric,
-    ForeignKey,
+    Text,
 )
-from sqlalchemy.orm import (
-    Mapped,
-    mapped_column,
-    relationship,
-)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.database import Base
 
@@ -21,110 +19,168 @@ class MasterTransaction(Base):
     __tablename__ = "master_transactions"
 
     id: Mapped[int] = mapped_column(
+        BigInteger,
         primary_key=True,
-        index=True
+        autoincrement=True,
+        index=True,
     )
 
-    invoice_no: Mapped[str] = mapped_column(
+    organization_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        index=True,
+    )
+
+    voucher_no: Mapped[str] = mapped_column(
         String(50),
-        unique=True,
         nullable=False,
-        index=True
+        index=True,
     )
 
-    transaction_date: Mapped[date] = mapped_column(
+    voucher_date: Mapped[date | None] = mapped_column(
         Date,
-        nullable=False
+        nullable=True,
     )
 
-    due_date: Mapped[date | None] = mapped_column(
+    voucher_due_date: Mapped[date | None] = mapped_column(
         Date,
-        nullable=True
+        nullable=True,
     )
 
-    patient_id: Mapped[int | None] = mapped_column(
-        ForeignKey("patients.id"),
-        nullable=True
+    ref_voucher_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
     )
 
-    therapist_id: Mapped[int | None] = mapped_column(
-        ForeignKey("therapists.id"),
-        nullable=True
+    ref_voucher_no: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
     )
 
-    voucher_type: Mapped[str] = mapped_column(
-        String(30),
-        default="invoice",
-        nullable=False
+    receipt_no: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
     )
 
-    reference_no: Mapped[str | None] = mapped_column(
+    manual_no: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+
+    master_amount: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 2),
+        nullable=True,
+    )
+
+    terms_conditions: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    payment_mode: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    payment_date: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True,
+    )
+
+    cheque_details: Mapped[str | None] = mapped_column(
         String(100),
-        nullable=True
+        nullable=True,
     )
 
-    subtotal: Mapped[Decimal] = mapped_column(
-        Numeric(12, 2),
-        default=0,
-        nullable=False
+    voucher_details: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True,
     )
 
-    discount: Mapped[Decimal] = mapped_column(
-        Numeric(12, 2),
-        default=0,
-        nullable=False
+    voucher_template_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        nullable=True,
     )
 
-    tax: Mapped[Decimal] = mapped_column(
-        Numeric(12, 2),
-        default=0,
-        nullable=False
+    created_by: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
     )
 
-    total: Mapped[Decimal] = mapped_column(
-        Numeric(12, 2),
-        default=0,
-        nullable=False
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
     )
 
-    paid_amount: Mapped[Decimal] = mapped_column(
-        Numeric(12, 2),
-        default=0,
-        nullable=False
+    approved_by: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
     )
 
-    balance_amount: Mapped[Decimal] = mapped_column(
-        Numeric(12, 2),
-        default=0,
-        nullable=False
+    approved_date: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True,
     )
 
-    status: Mapped[str] = mapped_column(
-        String(30),
-        default="unpaid",
-        nullable=False
+    checked_by: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
     )
 
-    payment_method: Mapped[str | None] = mapped_column(
-        String(30),
-        nullable=True
+    checked_date: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True,
     )
 
-    notes: Mapped[str | None] = mapped_column(
-        String(500),
-        nullable=True
+    deleted_by: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
     )
 
-    patient = relationship(
-        "Patient"
+    deleted_date: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True,
     )
 
-    therapist = relationship(
-        "Therapist"
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
     )
+
+    status: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        index=True,
+    )
+
+    financial_year_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        index=True,
+    )
+
+    master_acc_code: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    payment_month_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    # -----------------------------------------------------
+    # Relationships
+    # -----------------------------------------------------
 
     voucher_details = relationship(
         "VoucherDetail",
         back_populates="transaction",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+    )
+
+    voucher_sub_details = relationship(
+        "VoucherSubDetail",
+        back_populates="transaction",
+        cascade="all, delete-orphan",
     )

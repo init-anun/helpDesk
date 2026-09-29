@@ -1,12 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+)
+
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from models.therapist import Therapist
+
+from models.sub_account import SubAccount
+
 from schemas.therapist import (
     TherapistCreate,
-    TherapistUpdate
+    TherapistUpdate,
+    TherapistResponse,
 )
+
 
 router = APIRouter(
     prefix="/therapists",
@@ -14,15 +23,27 @@ router = APIRouter(
 )
 
 
-@router.post("/")
+# =========================================================
+# CREATE THERAPIST
+# =========================================================
+
+@router.post(
+    "/",
+    response_model=TherapistResponse
+)
 def create_therapist(
     data: TherapistCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    therapist = Therapist(
+
+    therapist = SubAccount(
         name=data.name,
         phone=data.phone,
-        email=data.email
+        email=data.email,
+
+        status=data.status,
+
+        account_type="therapist",
     )
 
     db.add(therapist)
@@ -32,22 +53,48 @@ def create_therapist(
     return therapist
 
 
-@router.get("/")
+# =========================================================
+# GET ALL THERAPISTS
+# =========================================================
+
+@router.get(
+    "/",
+    response_model=list[TherapistResponse]
+)
 def get_therapists(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    return db.query(Therapist).all()
+
+    therapists = db.query(
+        SubAccount
+    ).filter(
+        SubAccount.account_type == "therapist"
+    ).order_by(
+        SubAccount.id.desc()
+    ).all()
+
+    return therapists
 
 
-@router.get("/{therapist_id}")
+# =========================================================
+# GET ONE THERAPIST
+# =========================================================
+
+@router.get(
+    "/{therapist_id}",
+    response_model=TherapistResponse
+)
 def get_therapist(
     therapist_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    therapist = db.get(
-        Therapist,
-        therapist_id
-    )
+
+    therapist = db.query(
+        SubAccount
+    ).filter(
+        SubAccount.id == therapist_id,
+        SubAccount.account_type == "therapist"
+    ).first()
 
     if not therapist:
         raise HTTPException(
@@ -58,16 +105,26 @@ def get_therapist(
     return therapist
 
 
-@router.put("/{therapist_id}")
+# =========================================================
+# UPDATE THERAPIST
+# =========================================================
+
+@router.put(
+    "/{therapist_id}",
+    response_model=TherapistResponse
+)
 def update_therapist(
     therapist_id: int,
     data: TherapistUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    therapist = db.get(
-        Therapist,
-        therapist_id
-    )
+
+    therapist = db.query(
+        SubAccount
+    ).filter(
+        SubAccount.id == therapist_id,
+        SubAccount.account_type == "therapist"
+    ).first()
 
     if not therapist:
         raise HTTPException(
@@ -79,8 +136,12 @@ def update_therapist(
         exclude_unset=True
     )
 
-    for key, value in update_data.items():
-        setattr(therapist, key, value)
+    for field, value in update_data.items():
+        setattr(
+            therapist,
+            field,
+            value
+        )
 
     db.commit()
     db.refresh(therapist)
@@ -88,15 +149,24 @@ def update_therapist(
     return therapist
 
 
-@router.delete("/{therapist_id}")
+# =========================================================
+# DELETE THERAPIST
+# =========================================================
+
+@router.delete(
+    "/{therapist_id}"
+)
 def delete_therapist(
     therapist_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    therapist = db.get(
-        Therapist,
-        therapist_id
-    )
+
+    therapist = db.query(
+        SubAccount
+    ).filter(
+        SubAccount.id == therapist_id,
+        SubAccount.account_type == "therapist"
+    ).first()
 
     if not therapist:
         raise HTTPException(

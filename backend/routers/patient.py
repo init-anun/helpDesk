@@ -1,10 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+)
+
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from models.patient import Patient
-from models.therapist import Therapist
-from schemas.patient import PatientCreate, PatientUpdate
+
+from models.sub_account import SubAccount
+
+from schemas.patient import (
+    PatientCreate,
+    PatientUpdate,
+    PatientResponse,
+)
+
 
 router = APIRouter(
     prefix="/patients",
@@ -12,33 +23,33 @@ router = APIRouter(
 )
 
 
-@router.post("/")
+# =========================================================
+# CREATE Patient
+# =========================================================
+
+@router.post(
+    "/",
+    response_model=PatientResponse
+)
 def create_patient(
     data: PatientCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    if data.therapist_id:
-        therapist = db.get(
-            Therapist,
-            data.therapist_id
-        )
 
-        if not therapist:
-            raise HTTPException(
-                status_code=404,
-                detail="Therapist not found"
-            )
-
-    patient = Patient(
+    patient = SubAccount(
         name=data.name,
         phone=data.phone,
+
         age=data.age,
         gender=data.gender,
         address=data.address,
+
         condition=data.condition,
-        therapist_id=data.therapist_id,
         package=data.package,
-        status=data.status
+
+        status=data.status,
+
+        account_type="patient",
     )
 
     db.add(patient)
@@ -48,19 +59,48 @@ def create_patient(
     return patient
 
 
-@router.get("/")
+# =========================================================
+# GET ALL PATIENTS
+# =========================================================
+
+@router.get(
+    "/",
+    response_model=list[PatientResponse]
+)
 def get_patients(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    return db.query(Patient).all()
+
+    patients = db.query(
+        SubAccount
+    ).filter(
+        SubAccount.account_type == "patient"
+    ).order_by(
+        SubAccount.id.desc()
+    ).all()
+
+    return patients
 
 
-@router.get("/{patient_id}")
+# =========================================================
+# GET ONE PATIENT
+# =========================================================
+
+@router.get(
+    "/{patient_id}",
+    response_model=PatientResponse
+)
 def get_patient(
     patient_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    patient = db.get(Patient, patient_id)
+
+    patient = db.query(
+        SubAccount
+    ).filter(
+        SubAccount.id == patient_id,
+        SubAccount.account_type == "patient"
+    ).first()
 
     if not patient:
         raise HTTPException(
@@ -71,13 +111,26 @@ def get_patient(
     return patient
 
 
-@router.put("/{patient_id}")
+# =========================================================
+# UPDATE PATIENT
+# =========================================================
+
+@router.put(
+    "/{patient_id}",
+    response_model=PatientResponse
+)
 def update_patient(
     patient_id: int,
     data: PatientUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    patient = db.get(Patient, patient_id)
+
+    patient = db.query(
+        SubAccount
+    ).filter(
+        SubAccount.id == patient_id,
+        SubAccount.account_type == "patient"
+    ).first()
 
     if not patient:
         raise HTTPException(
@@ -85,24 +138,16 @@ def update_patient(
             detail="Patient not found"
         )
 
-    if data.therapist_id:
-        therapist = db.get(
-            Therapist,
-            data.therapist_id
-        )
-
-        if not therapist:
-            raise HTTPException(
-                status_code=404,
-                detail="Therapist not found"
-            )
-
     update_data = data.model_dump(
         exclude_unset=True
     )
 
-    for key, value in update_data.items():
-        setattr(patient, key, value)
+    for field, value in update_data.items():
+        setattr(
+            patient,
+            field,
+            value
+        )
 
     db.commit()
     db.refresh(patient)
@@ -110,12 +155,24 @@ def update_patient(
     return patient
 
 
-@router.delete("/{patient_id}")
+# =========================================================
+# DELETE PATIENT
+# =========================================================
+
+@router.delete(
+    "/{patient_id}"
+)
 def delete_patient(
     patient_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    patient = db.get(Patient, patient_id)
+
+    patient = db.query(
+        SubAccount
+    ).filter(
+        SubAccount.id == patient_id,
+        SubAccount.account_type == "patient"
+    ).first()
 
     if not patient:
         raise HTTPException(

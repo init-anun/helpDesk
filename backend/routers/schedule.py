@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from db.database import get_db
 from models.schedule import Schedule
-from models.patient import Patient
-from models.therapist import Therapist
+from models.sub_account import SubAccount
 from schemas.schedule import (
     ScheduleCreate,
     ScheduleUpdate,
@@ -14,43 +18,78 @@ from schemas.schedule import (
 
 router = APIRouter(
     prefix="/schedules",
-    tags=["Schedules"]
+    tags=["Schedules"],
 )
 
 
-# =========================
-# CREATE
-# =========================
-
-@router.post(
-    "/",
-    response_model=ScheduleResponse
-)
-def create_schedule(
-    schedule_data: ScheduleCreate,
-    db: Session = Depends(get_db)
-):
-    # Check patient
-    patient = db.query(Patient).filter(
-        Patient.id == schedule_data.patient_id
-    ).first()
+def get_patient(
+    db: Session,
+    patient_id: int,
+) -> SubAccount:
+    patient = (
+        db.query(SubAccount)
+        .filter(
+            SubAccount.id == patient_id,
+            SubAccount.account_type == "patient",
+        )
+        .first()
+    )
 
     if not patient:
         raise HTTPException(
-            status_code=404,
-            detail="Patient not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Patient not found",
         )
 
-    # Check therapist
-    therapist = db.query(Therapist).filter(
-        Therapist.id == schedule_data.therapist_id
-    ).first()
+    return patient
+
+
+def get_therapist(
+    db: Session,
+    therapist_id: int,
+) -> SubAccount:
+    therapist = (
+        db.query(SubAccount)
+        .filter(
+            SubAccount.id == therapist_id,
+            SubAccount.account_type == "therapist",
+        )
+        .first()
+    )
 
     if not therapist:
         raise HTTPException(
-            status_code=404,
-            detail="Therapist not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Therapist not found",
         )
+
+    return therapist
+
+
+# ---------------------------------------------------------
+# CREATE
+# ---------------------------------------------------------
+
+@router.post(
+    "/",
+    response_model=ScheduleResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_schedule(
+    schedule_data: ScheduleCreate,
+    db: Session = Depends(get_db),
+):
+    # Validate patient
+    get_patient(
+        db,
+        schedule_data.patient_id,
+    )
+
+    # Validate therapist
+    get_therapist(
+        db,
+        schedule_data.therapist_id,
+    )
 
     schedule = Schedule(
         patient_id=schedule_data.patient_id,
@@ -69,101 +108,94 @@ def create_schedule(
     return schedule
 
 
-# =========================
+# ---------------------------------------------------------
 # GET ALL
-# =========================
+# ---------------------------------------------------------
 
 @router.get(
     "/",
-    response_model=list[ScheduleResponse]
+    response_model=list[ScheduleResponse],
 )
 def get_schedules(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    schedules = db.query(Schedule).all()
+    return (
+        db.query(Schedule)
+        .order_by(Schedule.scheduled_at)
+        .all()
+    )
 
-    return schedules
 
-
-# =========================
+# ---------------------------------------------------------
 # GET ONE
-# =========================
+# ---------------------------------------------------------
 
 @router.get(
     "/{schedule_id}",
-    response_model=ScheduleResponse
+    response_model=ScheduleResponse,
 )
 def get_schedule(
     schedule_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    schedule = db.query(Schedule).filter(
-        Schedule.id == schedule_id
-    ).first()
+    schedule = (
+        db.query(Schedule)
+        .filter(Schedule.id == schedule_id)
+        .first()
+    )
 
     if not schedule:
         raise HTTPException(
-            status_code=404,
-            detail="Schedule not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Schedule not found",
         )
 
     return schedule
 
 
-# =========================
+# ---------------------------------------------------------
 # UPDATE
-# =========================
+# ---------------------------------------------------------
 
 @router.put(
     "/{schedule_id}",
-    response_model=ScheduleResponse
+    response_model=ScheduleResponse,
 )
 def update_schedule(
     schedule_id: int,
     schedule_data: ScheduleUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    schedule = db.query(Schedule).filter(
-        Schedule.id == schedule_id
-    ).first()
+    schedule = (
+        db.query(Schedule)
+        .filter(Schedule.id == schedule_id)
+        .first()
+    )
 
     if not schedule:
         raise HTTPException(
-            status_code=404,
-            detail="Schedule not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Schedule not found",
         )
 
     update_data = schedule_data.model_dump(
         exclude_unset=True
     )
 
-    # Check patient if changing patient
+    # Validate patient if being changed
     if "patient_id" in update_data:
+        get_patient(
+            db,
+            update_data["patient_id"],
+        )
 
-        patient = db.query(Patient).filter(
-            Patient.id == update_data["patient_id"]
-        ).first()
-
-        if not patient:
-            raise HTTPException(
-                status_code=404,
-                detail="Patient not found"
-            )
-
-    # Check therapist if changing therapist
+    # Validate therapist if being changed
     if "therapist_id" in update_data:
+        get_therapist(
+            db,
+            update_data["therapist_id"],
+        )
 
-        therapist = db.query(Therapist).filter(
-            Therapist.id == update_data["therapist_id"]
-        ).first()
-
-        if not therapist:
-            raise HTTPException(
-                status_code=404,
-                detail="Therapist not found"
-            )
-
-    # Update fields
     for field, value in update_data.items():
         setattr(schedule, field, value)
 
@@ -173,30 +205,31 @@ def update_schedule(
     return schedule
 
 
-# =========================
+# ---------------------------------------------------------
 # DELETE
-# =========================
+# ---------------------------------------------------------
 
 @router.delete(
-    "/{schedule_id}"
+    "/{schedule_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
 )
 def delete_schedule(
     schedule_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    schedule = db.query(Schedule).filter(
-        Schedule.id == schedule_id
-    ).first()
+    schedule = (
+        db.query(Schedule)
+        .filter(Schedule.id == schedule_id)
+        .first()
+    )
 
     if not schedule:
         raise HTTPException(
-            status_code=404,
-            detail="Schedule not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Schedule not found",
         )
 
     db.delete(schedule)
     db.commit()
 
-    return {
-        "message": "Schedule deleted successfully"
-    }
+    return None

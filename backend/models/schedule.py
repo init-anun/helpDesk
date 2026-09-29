@@ -1,7 +1,17 @@
 from datetime import datetime
 
-from sqlalchemy import String, Integer, DateTime, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import (
+    String,
+    Integer,
+    DateTime,
+    ForeignKey,
+    Text,
+)
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
+)
 
 from db.database import Base
 
@@ -11,52 +21,64 @@ class Schedule(Base):
 
     id: Mapped[int] = mapped_column(
         primary_key=True,
-        index=True
+        index=True,
     )
 
     patient_id: Mapped[int] = mapped_column(
-        ForeignKey("patients.id"),
-        nullable=False
+        ForeignKey(
+            "sub_accounts.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
     )
 
     therapist_id: Mapped[int] = mapped_column(
-        ForeignKey("therapists.id"),
-        nullable=False
+        ForeignKey(
+            "sub_accounts.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
     )
 
     scheduled_at: Mapped[datetime] = mapped_column(
         DateTime,
-        nullable=False
+        nullable=False,
+        index=True,
     )
 
     duration_minutes: Mapped[int] = mapped_column(
         Integer,
+        nullable=False,
         default=60,
-        nullable=False
     )
 
     type: Mapped[str] = mapped_column(
         String(50),
-        nullable=False
+        nullable=False,
     )
 
     notes: Mapped[str | None] = mapped_column(
-        String(500),
-        nullable=True
+        Text,
+        nullable=True,
     )
 
     status: Mapped[str] = mapped_column(
         String(30),
+        nullable=False,
         default="scheduled",
-        nullable=False
+        index=True,
     )
 
     patient = relationship(
-        "Patient",
-        back_populates="schedules"
+        "SubAccount",
+        foreign_keys=[patient_id],
+        back_populates="patient_schedules",
     )
 
     therapist = relationship(
-        "Therapist",
-        back_populates="schedules"
+        "SubAccount",
+        foreign_keys=[therapist_id],
+        back_populates="therapist_schedules",
     )

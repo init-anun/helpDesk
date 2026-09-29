@@ -1,29 +1,16 @@
-from decimal import Decimal, ROUND_HALF_UP
-
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    status,
 )
-
 from sqlalchemy.orm import Session
 
 from db.database import get_db
 
-from models.master_transaction import (
-    MasterTransaction,
-)
-
-from models.voucher_detail import (
-    VoucherDetail,
-)
-
-from models.voucher_sub_detail import (
-    VoucherSubDetail,
-)
-
-from models.patient import Patient
-from models.therapist import Therapist
+from models.master_transaction import MasterTransaction
+from models.voucher_detail import VoucherDetail
+from models.voucher_sub_detail import VoucherSubDetail
 
 from schemas.master_transaction import (
     MasterTransactionCreate,
@@ -34,261 +21,129 @@ from schemas.master_transaction import (
 
 router = APIRouter(
     prefix="/billing",
-    tags=["Billing"]
+    tags=["Billing"],
 )
 
 
 # =========================================================
-# HELPER FUNCTIONS
-# =========================================================
-
-def money(value):
-    return Decimal(value).quantize(
-        Decimal("0.01"),
-        rounding=ROUND_HALF_UP
-    )
-
-
-def calculate_sub_detail(sub_detail):
-    quantity = money(sub_detail.quantity)
-    rate = money(sub_detail.rate)
-    discount = money(sub_detail.discount)
-
-    gross_amount = quantity * rate
-
-    taxable_amount = gross_amount - discount
-
-    if taxable_amount < 0:
-        taxable_amount = Decimal("0.00")
-
-    tax_amount = (
-        taxable_amount
-        * money(sub_detail.tax_rate)
-        / Decimal("100")
-    )
-
-    amount = taxable_amount + tax_amount
-
-    return {
-        "quantity": quantity,
-        "rate": rate,
-        "discount": discount,
-        "tax_rate": money(sub_detail.tax_rate),
-        "tax_amount": money(tax_amount),
-        "amount": money(amount),
-    }
-
-
-def calculate_transaction(transaction):
-
-    subtotal = Decimal("0.00")
-
-    for detail in transaction.voucher_details:
-
-        for sub_detail in detail.sub_details:
-
-            subtotal += (
-                money(sub_detail.quantity)
-                * money(sub_detail.rate)
-            )
-
-    subtotal = money(subtotal)
-
-    discount = money(transaction.discount)
-    tax = money(transaction.tax)
-
-    total = subtotal - discount + tax
-
-    if total < 0:
-        total = Decimal("0.00")
-
-    paid = money(transaction.paid_amount)
-
-    balance = total - paid
-
-    if balance < 0:
-        balance = Decimal("0.00")
-
-    if paid <= 0:
-        status = "unpaid"
-
-    elif paid < total:
-        status = "partial"
-
-    else:
-        status = "paid"
-
-    return {
-        "subtotal": subtotal,
-        "discount": discount,
-        "tax": tax,
-        "total": money(total),
-        "paid_amount": paid,
-        "balance_amount": money(balance),
-        "status": status,
-    }
-
-
-# =========================================================
-# CREATE INVOICE
+# CREATE TRANSACTION
 # =========================================================
 
 @router.post(
     "/",
-    response_model=MasterTransactionResponse
+    response_model=MasterTransactionResponse,
+    status_code=status.HTTP_201_CREATED,
 )
-def create_invoice(
+def create_transaction(
     data: MasterTransactionCreate,
     db: Session = Depends(get_db),
 ):
+    # -----------------------------------------------------
+    # Check duplicate voucher number
+    # -----------------------------------------------------
 
-    # -----------------------------------------
-    # Check patient
-    # -----------------------------------------
-
-    if data.patient_id is not None:
-
-        patient = db.query(Patient).filter(
-            Patient.id == data.patient_id
-        ).first()
-
-        if not patient:
-            raise HTTPException(
-                status_code=404,
-                detail="Patient not found"
-            )
-
-    # -----------------------------------------
-    # Check therapist
-    # -----------------------------------------
-
-    if data.therapist_id is not None:
-
-        therapist = db.query(Therapist).filter(
-            Therapist.id == data.therapist_id
-        ).first()
-
-        if not therapist:
-            raise HTTPException(
-                status_code=404,
-                detail="Therapist not found"
-            )
-
-    # -----------------------------------------
-    # Check duplicate invoice
-    # -----------------------------------------
-
-    existing = db.query(
-        MasterTransaction
-    ).filter(
-        MasterTransaction.invoice_no == data.invoice_no
-    ).first()
+    existing = (
+        db.query(MasterTransaction)
+        .filter(
+            MasterTransaction.voucher_no == data.voucher_no
+        )
+        .first()
+    )
 
     if existing:
         raise HTTPException(
-            status_code=400,
-            detail="Invoice number already exists"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Voucher number already exists",
         )
 
-    # -----------------------------------------
-    # Create master
-    # -----------------------------------------
+    # -----------------------------------------------------
+    # Create master transaction
+    # -----------------------------------------------------
 
     transaction = MasterTransaction(
-        invoice_no=data.invoice_no,
-        transaction_date=data.transaction_date,
-        due_date=data.due_date,
-
-        patient_id=data.patient_id,
-        therapist_id=data.therapist_id,
-
-        voucher_type=data.voucher_type,
-        reference_no=data.reference_no,
-
-        discount=data.discount,
-        tax=data.tax,
-
-        paid_amount=data.paid_amount,
-
-        payment_method=data.payment_method,
-        notes=data.notes,
+        organization_id=data.organization_id,
+        voucher_no=data.voucher_no,
+        voucher_date=data.voucher_date,
+        voucher_due_date=data.voucher_due_date,
+        ref_voucher_id=data.ref_voucher_id,
+        ref_voucher_no=data.ref_voucher_no,
+        receipt_no=data.receipt_no,
+        manual_no=data.manual_no,
+        master_amount=data.master_amount,
+        terms_conditions=data.terms_conditions,
+        payment_mode=data.payment_mode,
+        payment_date=data.payment_date,
+        cheque_details=data.cheque_details,
+        voucher_details=data.voucher_details,
+        voucher_template_id=data.voucher_template_id,
+        created_by=data.created_by,
+        approved_by=data.approved_by,
+        approved_date=data.approved_date,
+        checked_by=data.checked_by,
+        checked_date=data.checked_date,
+        deleted_by=data.deleted_by,
+        deleted_date=data.deleted_date,
+        status=data.status,
+        financial_year_id=data.financial_year_id,
+        master_acc_code=data.master_acc_code,
+        payment_month_id=data.payment_month_id,
     )
 
     db.add(transaction)
     db.flush()
 
-    # -----------------------------------------
-    # Create details
-    # -----------------------------------------
+    # -----------------------------------------------------
+    # Create voucher details
+    # -----------------------------------------------------
 
-    for detail_data in data.voucher_details:
+    for detail_data in data.voucher_details_rows:
 
         detail = VoucherDetail(
-            transaction_id=transaction.id,
-
-            line_no=detail_data.line_no,
-
-            account_code=detail_data.account_code,
-            account_name=detail_data.account_name,
-
-            description=detail_data.description,
-
-            debit=detail_data.debit,
-            credit=detail_data.credit,
+            master_transaction_id=transaction.id,
+            chart_of_account_id=detail_data.chart_of_account_id,
+            serial_no=detail_data.serial_no,
+            particulars=detail_data.particulars,
+            tr_code=detail_data.tr_code,
+            dr_amount=detail_data.dr_amount,
+            cr_amount=detail_data.cr_amount,
+            remarks=detail_data.remarks,
+            created_by=detail_data.created_by,
+            created_at=detail_data.created_at,
+            updated_at=detail_data.updated_at,
+            line_item=detail_data.line_item,
+            updated_by=detail_data.updated_by,
         )
 
         db.add(detail)
-        db.flush()
 
-        # -------------------------------------
-        # Create sub-details
-        # -------------------------------------
+    # -----------------------------------------------------
+    # Create voucher sub-details
+    # -----------------------------------------------------
 
-        for sub_data in detail_data.sub_details:
+    for sub_data in data.voucher_sub_details:
 
-            calculated = calculate_sub_detail(
-                sub_data
-            )
+        sub_detail = VoucherSubDetail(
+            master_transaction_id=transaction.id,
+            serial_no=sub_data.serial_no,
+            chart_of_account_id=sub_data.chart_of_account_id,
+            sub_account_id=sub_data.sub_account_id,
+            item_description=sub_data.item_description,
+            quantity=sub_data.quantity,
+            unit_price=sub_data.unit_price,
+            tax=sub_data.tax,
+            tax_rate=sub_data.tax_rate,
+            tr_code=sub_data.tr_code,
+            dr_amount=sub_data.dr_amount,
+            cr_amount=sub_data.cr_amount,
+            created_by=sub_data.created_by,
+            created_at=sub_data.created_at,
+            updated_at=sub_data.updated_at,
+            discount=sub_data.discount,
+            line_item=sub_data.line_item,
+            updated_by=sub_data.updated_by,
+        )
 
-            sub_detail = VoucherSubDetail(
-                voucher_detail_id=detail.id,
-
-                item_code=sub_data.item_code,
-                item_name=sub_data.item_name,
-                description=sub_data.description,
-
-                quantity=calculated["quantity"],
-                rate=calculated["rate"],
-                discount=calculated["discount"],
-
-                tax_rate=calculated["tax_rate"],
-                tax_amount=calculated["tax_amount"],
-
-                amount=calculated["amount"],
-            )
-
-            db.add(sub_detail)
-
-    db.flush()
-
-    # -----------------------------------------
-    # Calculate totals
-    # -----------------------------------------
-
-    totals = calculate_transaction(
-        transaction
-    )
-
-    transaction.subtotal = totals["subtotal"]
-    transaction.discount = totals["discount"]
-    transaction.tax = totals["tax"]
-
-    transaction.total = totals["total"]
-
-    transaction.paid_amount = totals["paid_amount"]
-    transaction.balance_amount = totals["balance_amount"]
-
-    transaction.status = totals["status"]
+        db.add(sub_detail)
 
     db.commit()
     db.refresh(transaction)
@@ -297,148 +152,260 @@ def create_invoice(
 
 
 # =========================================================
-# GET ALL INVOICES
+# GET ALL TRANSACTIONS
 # =========================================================
 
 @router.get(
     "/",
-    response_model=list[MasterTransactionResponse]
+    response_model=list[MasterTransactionResponse],
 )
-def get_invoices(
-    db: Session = Depends(get_db)
+def get_transactions(
+    db: Session = Depends(get_db),
 ):
-
-    transactions = db.query(
-        MasterTransaction
-    ).order_by(
-        MasterTransaction.id.desc()
-    ).all()
+    transactions = (
+        db.query(MasterTransaction)
+        .order_by(
+            MasterTransaction.id.desc()
+        )
+        .all()
+    )
 
     return transactions
 
 
 # =========================================================
-# GET SINGLE INVOICE
+# GET SINGLE TRANSACTION
 # =========================================================
 
 @router.get(
     "/{transaction_id}",
-    response_model=MasterTransactionResponse
+    response_model=MasterTransactionResponse,
 )
-def get_invoice(
+def get_transaction(
     transaction_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-
-    transaction = db.query(
-        MasterTransaction
-    ).filter(
-        MasterTransaction.id == transaction_id
-    ).first()
+    transaction = (
+        db.query(MasterTransaction)
+        .filter(
+            MasterTransaction.id == transaction_id
+        )
+        .first()
+    )
 
     if not transaction:
         raise HTTPException(
-            status_code=404,
-            detail="Invoice not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transaction not found",
         )
 
     return transaction
 
 
 # =========================================================
-# UPDATE INVOICE
+# UPDATE TRANSACTION
 # =========================================================
 
 @router.put(
     "/{transaction_id}",
-    response_model=MasterTransactionResponse
+    response_model=MasterTransactionResponse,
 )
-def update_invoice(
+def update_transaction(
     transaction_id: int,
     data: MasterTransactionUpdate,
     db: Session = Depends(get_db),
 ):
-
-    transaction = db.query(
-        MasterTransaction
-    ).filter(
-        MasterTransaction.id == transaction_id
-    ).first()
+    transaction = (
+        db.query(MasterTransaction)
+        .filter(
+            MasterTransaction.id == transaction_id
+        )
+        .first()
+    )
 
     if not transaction:
         raise HTTPException(
-            status_code=404,
-            detail="Invoice not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transaction not found",
         )
 
     update_data = data.model_dump(
         exclude_unset=True
     )
 
-    # -----------------------------------------
-    # Validate patient
-    # -----------------------------------------
+    # -----------------------------------------------------
+    # Check duplicate voucher number
+    # -----------------------------------------------------
 
-    if "patient_id" in update_data:
+    if "voucher_no" in update_data:
 
-        if update_data["patient_id"] is not None:
+        existing = (
+            db.query(MasterTransaction)
+            .filter(
+                MasterTransaction.voucher_no
+                == update_data["voucher_no"],
+                MasterTransaction.id != transaction_id,
+            )
+            .first()
+        )
 
-            patient = db.query(Patient).filter(
-                Patient.id == update_data["patient_id"]
-            ).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Voucher number already exists",
+            )
 
-            if not patient:
-                raise HTTPException(
-                    status_code=404,
-                    detail="Patient not found"
-                )
-
-    # -----------------------------------------
-    # Validate therapist
-    # -----------------------------------------
-
-    if "therapist_id" in update_data:
-
-        if update_data["therapist_id"] is not None:
-
-            therapist = db.query(Therapist).filter(
-                Therapist.id == update_data["therapist_id"]
-            ).first()
-
-            if not therapist:
-                raise HTTPException(
-                    status_code=404,
-                    detail="Therapist not found"
-                )
-
-    # -----------------------------------------
-    # Update
-    # -----------------------------------------
+    # -----------------------------------------------------
+    # Update master transaction
+    # -----------------------------------------------------
 
     for field, value in update_data.items():
+
+        # Detail collections are handled separately
+        if field in {
+            "voucher_details_rows",
+            "voucher_sub_details",
+        }:
+            continue
 
         setattr(
             transaction,
             field,
-            value
+            value,
         )
 
-    db.commit()
-    db.refresh(transaction)
+    # -----------------------------------------------------
+    # Replace voucher details
+    # -----------------------------------------------------
 
-    # -----------------------------------------
-    # Recalculate payment status
-    # -----------------------------------------
+    if "voucher_details_rows" in update_data:
 
-    totals = calculate_transaction(
-        transaction
-    )
+        db.query(VoucherDetail).filter(
+            VoucherDetail.master_transaction_id
+            == transaction_id
+        ).delete(
+            synchronize_session=False
+        )
 
-    transaction.subtotal = totals["subtotal"]
-    transaction.total = totals["total"]
-    transaction.balance_amount = totals["balance_amount"]
+        for detail_data in (
+            update_data["voucher_details_rows"]
+        ):
 
-    transaction.status = totals["status"]
+            detail = VoucherDetail(
+                master_transaction_id=transaction_id,
+                chart_of_account_id=detail_data[
+                    "chart_of_account_id"
+                ],
+                serial_no=detail_data[
+                    "serial_no"
+                ],
+                particulars=detail_data.get(
+                    "particulars"
+                ),
+                tr_code=detail_data.get(
+                    "tr_code"
+                ),
+                dr_amount=detail_data.get(
+                    "dr_amount"
+                ),
+                cr_amount=detail_data.get(
+                    "cr_amount"
+                ),
+                remarks=detail_data.get(
+                    "remarks"
+                ),
+                created_by=detail_data.get(
+                    "created_by"
+                ),
+                created_at=detail_data.get(
+                    "created_at"
+                ),
+                updated_at=detail_data.get(
+                    "updated_at"
+                ),
+                line_item=detail_data.get(
+                    "line_item"
+                ),
+                updated_by=detail_data.get(
+                    "updated_by"
+                ),
+            )
+
+            db.add(detail)
+
+    # -----------------------------------------------------
+    # Replace voucher sub-details
+    # -----------------------------------------------------
+
+    if "voucher_sub_details" in update_data:
+
+        db.query(VoucherSubDetail).filter(
+            VoucherSubDetail.master_transaction_id
+            == transaction_id
+        ).delete(
+            synchronize_session=False
+        )
+
+        for sub_data in (
+            update_data["voucher_sub_details"]
+        ):
+
+            sub_detail = VoucherSubDetail(
+                master_transaction_id=transaction_id,
+                serial_no=sub_data[
+                    "serial_no"
+                ],
+                chart_of_account_id=sub_data[
+                    "chart_of_account_id"
+                ],
+                sub_account_id=sub_data.get(
+                    "sub_account_id"
+                ),
+                item_description=sub_data.get(
+                    "item_description"
+                ),
+                quantity=sub_data.get(
+                    "quantity"
+                ),
+                unit_price=sub_data.get(
+                    "unit_price"
+                ),
+                tax=sub_data.get(
+                    "tax"
+                ),
+                tax_rate=sub_data.get(
+                    "tax_rate"
+                ),
+                tr_code=sub_data.get(
+                    "tr_code"
+                ),
+                dr_amount=sub_data.get(
+                    "dr_amount"
+                ),
+                cr_amount=sub_data.get(
+                    "cr_amount"
+                ),
+                created_by=sub_data.get(
+                    "created_by"
+                ),
+                created_at=sub_data.get(
+                    "created_at"
+                ),
+                updated_at=sub_data.get(
+                    "updated_at"
+                ),
+                discount=sub_data.get(
+                    "discount"
+                ),
+                line_item=sub_data.get(
+                    "line_item"
+                ),
+                updated_by=sub_data.get(
+                    "updated_by"
+                ),
+            )
+
+            db.add(sub_detail)
 
     db.commit()
     db.refresh(transaction)
@@ -447,32 +414,33 @@ def update_invoice(
 
 
 # =========================================================
-# DELETE INVOICE
+# DELETE TRANSACTION
 # =========================================================
 
 @router.delete(
-    "/{transaction_id}"
+    "/{transaction_id}",
 )
-def delete_invoice(
+def delete_transaction(
     transaction_id: int,
     db: Session = Depends(get_db),
 ):
-
-    transaction = db.query(
-        MasterTransaction
-    ).filter(
-        MasterTransaction.id == transaction_id
-    ).first()
+    transaction = (
+        db.query(MasterTransaction)
+        .filter(
+            MasterTransaction.id == transaction_id
+        )
+        .first()
+    )
 
     if not transaction:
         raise HTTPException(
-            status_code=404,
-            detail="Invoice not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transaction not found",
         )
 
     db.delete(transaction)
     db.commit()
 
     return {
-        "message": "Invoice deleted successfully"
+        "message": "Transaction deleted successfully"
     }
