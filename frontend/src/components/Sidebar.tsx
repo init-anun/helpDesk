@@ -2,38 +2,47 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  LayoutDashboard,
+  Users,
+  CalendarDays,
+  Receipt,
+  Stethoscope,
+} from "lucide-react";
+
+import type { LucideIcon } from "lucide-react";
 
 interface NavItem {
   name: string;
   href: string;
-  icon: string;
+  icon: LucideIcon;
 }
 
 const navItems: NavItem[] = [
   {
     name: "Dashboard",
     href: "/dashboard",
-    icon: "▦",
+    icon: LayoutDashboard,
   },
   {
     name: "Patients",
     href: "/patients",
-    icon: "♙",
+    icon: Users,
   },
   {
     name: "Schedule",
     href: "/schedule",
-    icon: "▣",
+    icon: CalendarDays,
   },
   {
     name: "Billing",
     href: "/billing",
-    icon: "$",
+    icon: Receipt,
   },
   {
     name: "Therapists",
     href: "/therapists",
-    icon: "♧",
+    icon: Stethoscope,
   },
 ];
 
@@ -74,6 +83,8 @@ export default function Sidebar() {
 
           <div className="space-y-1">
             {navItems.map((item) => {
+              const Icon = item.icon;
+
               const isActive =
                 pathname === item.href ||
                 pathname.startsWith(`${item.href}/`);
@@ -88,9 +99,7 @@ export default function Sidebar() {
                       : "text-slate-300 hover:bg-slate-800 hover:text-white"
                   }`}
                 >
-                  <span className="flex h-5 w-5 items-center justify-center">
-                    {item.icon}
-                  </span>
+                  <Icon className="h-5 w-5 shrink-0" />
 
                   <span>{item.name}</span>
                 </Link>
